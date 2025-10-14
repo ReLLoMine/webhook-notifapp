@@ -1,0 +1,27 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: simple-crud-app
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - triggerRef: simple-crud-app-pr-merged
+
+---
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: el-simple-crud-app
+  annotations:
+    cert-manager.io/issuer-name: letsencrypt-http
+    cert-manager.io/issuer-kind: ClusterIssuer
+    cert-manager.io/common-name: "simple-crud-app-pipeline.rellomine.ru"
+    cert-manager.io/subject-organizations: "ReLLoMine"
+spec:
+  host: simple-crud-app-pipeline.rellomine.ru
+  to:
+    kind: Service
+    name: el-simple-crud-app
+  port:
+    targetPort: http-listener

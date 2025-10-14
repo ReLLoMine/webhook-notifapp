@@ -1,0 +1,12 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: simple-crud-app
+spec:
+  params:
+  - name: git-repo-url
+    value: $(body.repository.ssh_url)
+  - name: git-repo-name
+    value: $(extensions.repository_name)
+  - name: git-revision
+    value: $(body.head_commit.id)

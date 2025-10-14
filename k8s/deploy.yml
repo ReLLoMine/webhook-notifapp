@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-notifapp
+  namespace: webhook-notifapp
+  labels:
+    app: webhook-notifapp
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-notifapp
+  template:
+    metadata:
+      labels:
+        app: webhook-notifapp
+    spec:
+      containers:
+        - name: webhook-notifapp
+          image: webhook-notifapp
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: webhook-notifapp-secret
+                  key: DB_PASSWORD
+            - name: DB_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: webhook-notifapp-config
+                  key: DB_URI
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+        - name: redis
+          image: docker.io/library/redis:latest
+          command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: webhook-notifapp-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: webhook-notifapp-pvc

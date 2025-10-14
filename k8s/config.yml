@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: webhook-notifapp-pvc
+  namespace: webhook-notifapp
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webhook-notifapp-config
+  namespace: webhook-notifapp
+data:
+  DB_URI: "localhost:6379"
