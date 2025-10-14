@@ -30,12 +30,3 @@ spec:
     - ref: webhook-notifapp
   template:
     ref: webhook-notifapp
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: github-secret
-type: Opaque
-stringData:
-  secretToken: "e4131c063286e1d706779b0c8d5c6367"
