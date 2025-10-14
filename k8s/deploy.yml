@@ -5,6 +5,7 @@ metadata:
   namespace: webhook-notifapp
   labels:
     app: webhook-notifapp
+    app.kubernetes.io/part-of: "WebhookNotifApp"
 spec:
   strategy:
     type: Recreate
@@ -16,6 +17,7 @@ spec:
     metadata:
       labels:
         app: webhook-notifapp
+        app.kubernetes.io/part-of: "WebhookNotifApp"
     spec:
       containers:
         - name: webhook-notifapp

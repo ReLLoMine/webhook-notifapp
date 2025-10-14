@@ -5,6 +5,7 @@ metadata:
   namespace: webhook-notifapp
   labels:
     app: webhook-notifapp
+    app.kubernetes.io/part-of: "WebhookNotifApp"
 spec:
   selector:
     app: webhook-notifapp
