@@ -1,36 +1,36 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: simple-crud-app-service
-  namespace: simple-crud-app
+  name: webhook-notifapp-service
+  namespace: webhook-notifapp
   labels:
-    app: simple-crud-app
+    app: webhook-notifapp
 spec:
   selector:
-    app: simple-crud-app
+    app: webhook-notifapp
   ports:
     - name: http
       port: 80
       targetPort: 8080
       protocol: TCP
 
----
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: simple-crud-app-route
-  namespace: simple-crud-app
-  annotations:
-    cert-manager.io/issuer-name: letsencrypt-http
-    cert-manager.io/issuer-kind: ClusterIssuer
-    cert-manager.io/common-name: "mongo-rest.rellomine.ru"
-    cert-manager.io/subject-organizations: "ReLLoMine"
-spec:
-  host: mongo-rest.rellomine.ru
-  to:
-    kind: Service
-    name: simple-crud-app-service
-  port:
-    targetPort: http
-  tls:
-    termination: edge
+# ---
+# apiVersion: route.openshift.io/v1
+# kind: Route
+# metadata:
+#   name: webhook-notifapp-route
+#   namespace: webhook-notifapp
+#   annotations:
+#     cert-manager.io/issuer-name: letsencrypt-http
+#     cert-manager.io/issuer-kind: ClusterIssuer
+#     cert-manager.io/common-name: "mongo-rest.rellomine.ru"
+#     cert-manager.io/subject-organizations: "ReLLoMine"
+# spec:
+#   host: mongo-rest.rellomine.ru
+#   to:
+#     kind: Service
+#     name: webhook-notifapp-service
+#   port:
+#     targetPort: http
+#   tls:
+#     termination: edge

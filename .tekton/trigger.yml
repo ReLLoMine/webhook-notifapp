@@ -1,7 +1,7 @@
 apiVersion: triggers.tekton.dev/v1beta1
 kind: Trigger
 metadata:
-  name: simple-crud-app-pr-merged
+  name: webhook-notifapp-pr-merged
 spec:
   serviceAccountName: pipeline
   interceptors:
@@ -27,15 +27,6 @@ spec:
             - key: repository_name
               expression: "body.repository.name.lowerAscii()"
   bindings:
-    - ref: simple-crud-app
+    - ref: webhook-notifapp
   template:
-    ref: simple-crud-app
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: github-secret
-type: Opaque
-stringData:
-  secretToken: "e4131c063286e1d706779b0c8d5c6367"
+    ref: webhook-notifapp

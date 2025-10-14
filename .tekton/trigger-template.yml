@@ -1,7 +1,7 @@
 apiVersion: triggers.tekton.dev/v1beta1
 kind: TriggerTemplate
 metadata:
-  name: simple-crud-app
+  name: webhook-notifapp
 spec:
   params:
   - name: git-repo-url
@@ -24,7 +24,7 @@ spec:
         name: build-and-deploy
       params:
       - name: deployment-name
-        value: simple-crud-app
+        value: webhook-notifapp
       - name: git-url
         value: $(tt.params.git-repo-url)
       - name: git-revision
