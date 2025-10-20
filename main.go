@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
+	"iter"
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/go-telegram/bot"
@@ -17,50 +21,35 @@ import (
 )
 
 type Environment struct {
-	botToken   string
-	serverHost string
-	serverPort string
-	dbURI      string
-	dbUsername string
-	dbPassword string
+	botToken     string
+	serverHost   string
+	serverPort   string
+	dbURI        string
+	dbUsername   string
+	dbPassword   string
+	templatesDir string
 }
 
 var env Environment = Environment{
-	botToken:   getEnv("BOT_TOKEN", "8243648367:AAH0J-h036UJcZSIxUDIPXYw8MAs0JrYfd0"),
-	serverHost: getEnv("SERVER_HOST", "0.0.0.0"),
-	serverPort: getEnv("SERVER_PORT", "8080"),
-	dbURI:      getEnv("DB_URI", "127.0.0.1:6379"),
-	dbUsername: getEnv("DB_USERNAME", ""),
-	dbPassword: getEnv("DB_PASSWORD", ""),
+	botToken:     getEnv("BOT_TOKEN", "token"),
+	serverHost:   getEnv("SERVER_HOST", "0.0.0.0"),
+	serverPort:   getEnv("SERVER_PORT", "8080"),
+	dbURI:        getEnv("DB_URI", "127.0.0.1:6379"),
+	dbUsername:   getEnv("DB_USERNAME", ""),
+	dbPassword:   getEnv("DB_PASSWORD", ""),
+	templatesDir: getEnv("TEMPLATES_DIR", "./templates"),
 }
 
 var rclient *redis.Client
 var mainContext context.Context
 var tbot *bot.Bot
+var templates *template.Template
 
 func getEnv(envVar string, fallback string) string {
 	if env := os.Getenv(envVar); env != "" {
 		return env
 	}
 	return fallback
-}
-
-type Message struct {
-	Alerts []Alert `json:"alerts"`
-	Status string  `json:"status"`
-}
-
-func (msg *Message) Format() string {
-	result := ""
-
-	for _, alert := range msg.Alerts {
-		var header string = alert.Labels.Severity
-		if value, ok := severity[alert.Labels.Severity]; ok {
-			header = fmt.Sprintf("%s <b>%s</b> %s", value, cases.Title(language.English, cases.Compact).String(alert.Labels.Severity), value)
-		}
-		result += fmt.Sprintf("%s\nMessage: <blockquote>%s</blockquote>\n<blockquote>%s</blockquote>\n<a href=\"%s\">Metric that caused alert</a>", header, alert.Annotations.Summary, alert.Annotations.Description, alert.GeneratorURL)
-	}
-	return result
 }
 
 type Alert struct {
@@ -82,6 +71,90 @@ var severity map[string]string = map[string]string{
 	"warning":  "⚠️",
 	"info":     "ℹ️",
 	"critical": "⛔",
+}
+
+type Message struct {
+	Alerts []Alert `json:"alerts"`
+	Status string  `json:"status"`
+}
+
+type MessageComposed struct {
+	Severity     string
+	SeverityIcon string
+	Summary      string
+	Description  string
+	GeneratorURL string
+}
+
+func (msg *Message) Format() string {
+
+	result := ""
+
+	for _, alert := range msg.Alerts {
+		var header string = alert.Labels.Severity
+		if value, ok := severity[alert.Labels.Severity]; ok {
+			header = fmt.Sprintf("%s <b>%s</b> %s", value, cases.Title(language.English, cases.Compact).String(alert.Labels.Severity), value)
+		}
+		result += fmt.Sprintf("%s\nMessage: <blockquote>%s</blockquote>\n<blockquote>%s</blockquote>\n<a href=\"%s\">Metric that caused alert</a>", header, alert.Annotations.Summary, alert.Annotations.Description, alert.GeneratorURL)
+	}
+	return result
+}
+
+func (msg *Message) ComposeMessage() []MessageComposed {
+	var res []MessageComposed = make([]MessageComposed, 0)
+	for _, alert := range msg.Alerts {
+		icon, ok := severity[alert.Labels.Severity]
+		if !ok {
+			icon = ""
+		}
+		res = append(res, MessageComposed{
+			Severity:     cases.Title(language.English, cases.Compact).String(alert.Labels.Severity),
+			SeverityIcon: icon,
+			Summary:      alert.Annotations.Summary,
+			Description:  alert.Annotations.Description,
+			GeneratorURL: alert.GeneratorURL,
+		})
+	}
+	return res
+}
+
+func loadTemplates() {
+	files, _ := os.ReadDir(env.templatesDir)
+
+	filesNames := make([]string, 0)
+	for i := 0; i < len(files); i++ {
+		if files[i].IsDir() {
+			continue
+		}
+		filesNames = append(filesNames, env.templatesDir+string(os.PathSeparator)+files[i].Name())
+	}
+
+	var err error
+	templates, err = template.ParseFiles(filesNames...)
+	if err != nil {
+		log.Panic(err.Error())
+	}
+}
+
+func (msg *Message) AllAlerts() iter.Seq[string] {
+	compMsgs := msg.ComposeMessage()
+	return func(yield func(string) bool) {
+		for _, compMsg := range compMsgs {
+			var buf bytes.Buffer
+			err := templates.ExecuteTemplate(&buf, "message-template", compMsg)
+			if err != nil {
+				log.Panic(err.Error())
+			}
+
+			if !yield(buf.String()) {
+				return
+			}
+		}
+	}
+}
+
+func init() {
+	loadTemplates()
 }
 
 func init() {
@@ -139,19 +212,21 @@ func mainHandler(rw http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(mainContext, time.Second*2)
 	defer cancel()
 
-	data, err := rclient.LRange(ctx, "subscribers", 0, -1).Result()
+	subscribers, err := rclient.LRange(ctx, "subscribers", 0, -1).Result()
 	if err != nil {
 		log.Panic(err.Error())
 	}
 
-	for _, subscriber := range data {
-		if _, err := tbot.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    subscriber,
-			Text:      msg.Format(),
-			ParseMode: models.ParseModeHTML,
-		}); err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			log.Panic(err.Error())
+	for alert := range msg.AllAlerts() {
+		for _, subscriber := range subscribers {
+			if _, err := tbot.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID:    subscriber,
+				Text:      alert,
+				ParseMode: models.ParseModeHTML,
+			}); err != nil {
+				rw.WriteHeader(http.StatusInternalServerError)
+				log.Panic(err.Error())
+			}
 		}
 	}
 
@@ -170,7 +245,10 @@ func botHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		rclient.LRem(resdisctx, "subscribers", 0, update.Message.Chat.ID)
 		response = "Succesfully unsubscribed"
 	case "/subscribe":
-		rclient.RPush(resdisctx, "subscribers", update.Message.Chat.ID)
+		subscribers, err := rclient.LRange(resdisctx, "subscribers", 0, -1).Result()
+		if !slices.Contains(subscribers, fmt.Sprint(update.Message.Chat.ID)) || err != nil {
+			rclient.RPush(resdisctx, "subscribers", update.Message.Chat.ID)
+		}
 		response = "Succesfully subscribed"
 	default:
 		response = "Unknown command.\nUse /subscribe or /unsubscribe"

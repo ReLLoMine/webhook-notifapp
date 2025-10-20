@@ -1,0 +1,3 @@
+{{.SeverityIcon}} <b>{{.Severity}}</b> {{.SeverityIcon}}
+Message: <blockquote>{{.Summary}}</blockquote><blockquote>{{.Description}}</blockquote>
+<a href="{{.GeneratorURL}}">Metric that caused alert</a>
