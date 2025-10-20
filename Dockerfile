@@ -7,6 +7,8 @@ RUN go mod download
 
 COPY *.go ./
 
+COPY ./templates ./templates
+
 RUN CGO_ENABLED=0 GOOS=linux go build -o /simple-crud-app
 
 EXPOSE 8080
