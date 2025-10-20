@@ -33,6 +33,11 @@ spec:
                 configMapKeyRef:
                   name: webhook-notifapp-config
                   key: DB_URI
+            - name: BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: webhook-notifapp-secret
+                  key: BOT_TOKEN
           ports:
             - containerPort: 8080
           resources:
