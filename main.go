@@ -81,6 +81,7 @@ type Message struct {
 type MessageComposed struct {
 	Severity     string
 	SeverityIcon string
+	Status       string
 	Summary      string
 	Description  string
 	GeneratorURL string
@@ -95,7 +96,7 @@ func (msg *Message) Format() string {
 		if value, ok := severity[alert.Labels.Severity]; ok {
 			header = fmt.Sprintf("%s <b>%s</b> %s", value, cases.Title(language.English, cases.Compact).String(alert.Labels.Severity), value)
 		}
-		result += fmt.Sprintf("%s\nMessage: <blockquote>%s</blockquote>\n<blockquote>%s</blockquote>\n<a href=\"%s\">Metric that caused alert</a>", header, alert.Annotations.Summary, alert.Annotations.Description, alert.GeneratorURL)
+		result += fmt.Sprintf("%s\nMessage: <blockquote>%s</blockquote>\n---\n<blockquote>%s</blockquote>\n<a href=\"%s\">Metric that caused alert</a>", header, alert.Annotations.Summary, alert.Annotations.Description, alert.GeneratorURL)
 	}
 	return result
 }
@@ -110,6 +111,7 @@ func (msg *Message) ComposeMessage() []MessageComposed {
 		res = append(res, MessageComposed{
 			Severity:     cases.Title(language.English, cases.Compact).String(alert.Labels.Severity),
 			SeverityIcon: icon,
+			Status:       msg.Status,
 			Summary:      alert.Annotations.Summary,
 			Description:  alert.Annotations.Description,
 			GeneratorURL: alert.GeneratorURL,
